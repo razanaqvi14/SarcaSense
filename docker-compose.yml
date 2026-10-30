@@ -1,0 +1,65 @@
+name: sarcasense
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sarcasm
+      POSTGRES_USER: sarcasm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/gen-env.sh to create .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [data]            # internal network: no published ports, no internet
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sarcasm -d sarcasm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    image: sarcasense-backend:1.0.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://sarcasm:${POSTGRES_PASSWORD}@db:5432/sarcasm
+      SECRET_KEY: ${SECRET_KEY:?Run scripts/gen-env.sh to create .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ENABLE_DOCS: ${ENABLE_DOCS:-false}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-60}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [edge, data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    pids_limit: 200
+
+  frontend:
+    build: ./frontend
+    image: sarcasense-frontend:1.0.0
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-8090}:8080"
+    networks: [edge]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  edge: {}
+  data:
+    internal: true
+
+volumes:
+  pgdata: {}

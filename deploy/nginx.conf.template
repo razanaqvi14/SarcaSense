@@ -1,0 +1,67 @@
+# Rendered by start.sh (only ${PORT} and ${CLIENT_IP_EXPR} are substituted).
+worker_processes 1;
+pid /tmp/nginx/nginx.pid;
+error_log /dev/stderr warn;
+
+events { worker_connections 256; }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log off;                  # uvicorn already logs every API request
+    server_tokens off;
+    sendfile on;
+    client_max_body_size 16k;
+
+    # nginx runs unprivileged, so every temp path must be writable.
+    client_body_temp_path /tmp/nginx/client_body;
+    proxy_temp_path       /tmp/nginx/proxy;
+    fastcgi_temp_path     /tmp/nginx/fastcgi;
+    uwsgi_temp_path       /tmp/nginx/uwsgi;
+    scgi_temp_path        /tmp/nginx/scgi;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # The address the API's rate limiter should see. Defaults to the socket peer; with
+    # CLIENT_IP_HEADER set it is that request header (only safe when the platform's edge
+    # overwrites it), falling back to the socket peer when absent.
+    map ${CLIENT_IP_EXPR} $client_ip {
+        ""      $remote_addr;
+        default ${CLIENT_IP_EXPR};
+    }
+    map $http_x_forwarded_proto $hsts {
+        https   "max-age=31536000; includeSubDomains";
+        default "";
+    }
+
+    server {
+        listen ${PORT};
+        root /srv/www;
+        index index.html;
+
+        location /api/ {
+            proxy_pass http://127.0.0.1:8000;
+            proxy_set_header Host $host;
+            # Overwrite (never append): clients must not be able to choose their own address.
+            proxy_set_header X-Forwarded-For $client_ip;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 30s;
+            include /etc/nginx/snippets/security-headers.conf;
+            add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+        }
+
+        location /assets/ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            include /etc/nginx/snippets/security-headers.conf;
+        }
+
+        location / {
+            try_files $uri /index.html;
+            add_header Cache-Control "no-cache";
+            include /etc/nginx/snippets/security-headers.conf;
+            add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'" always;
+        }
+    }
+}

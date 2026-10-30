@@ -1,0 +1,29 @@
+# Render Blueprint: deploys the whole site as ONE Docker web service (nginx + API).
+# The database is external (see docs/engineering/DEPLOY_RENDER.md); you paste its URL when prompted.
+services:
+  - type: web
+    name: sarcasense
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    # free = 0.1 CPU / 512 MB: sleeps when idle and takes ~1 min to wake.
+    # For no sleeping and faster starts use `0.5c-512mb`; if the app is ever OOM-killed use `1c-2g`.
+    plan: free
+    # Liveness only (no database call), so health checks don't keep a scale-to-zero database awake.
+    healthCheckPath: /api/live
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL          # you are asked for this once, on first Blueprint creation
+        sync: false
+      - key: SECRET_KEY            # Render generates a random 256-bit value
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: CLIENT_IP_HEADER      # real visitor IP for the rate limiter; see the guide before changing
+        value: cf-connecting-ip
+      - key: ARGON2_MEMORY_KIB     # lighter password hashing so 512 MB is enough
+        value: "19456"
+      - key: ARGON2_TIME_COST
+        value: "2"
+      - key: ARGON2_PARALLELISM
+        value: "1"

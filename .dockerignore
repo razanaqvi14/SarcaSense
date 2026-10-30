@@ -1,0 +1,15 @@
+# Build context for deploy/Dockerfile (repository root). The compose builds use their own
+# per-folder contexts and .dockerignore files.
+.git
+.env
+.gitignore
+ml
+docs
+scripts
+deploy/README*
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+backend/tests
+backend/dev.db
