@@ -32,7 +32,15 @@ export default function App() {
       </main>
       <footer className="container">
         <div className="colophon label">
-          BiLSTM + BiGRU + attention · trained on 28k news headlines · about 87% accurate · it can be wrong
+          trained on 28k news headlines (
+          <a
+            href="https://www.kaggle.com/datasets/rmisra/news-headlines-dataset-for-sarcasm-detection"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Kaggle dataset
+          </a>
+          ) · about 87% accurate · it can be wrong
         </div>
       </footer>
     </>

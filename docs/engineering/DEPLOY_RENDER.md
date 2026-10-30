@@ -95,11 +95,88 @@ Your address is shown at the top of the service page (`https://sarcasense-xxxx.o
 3. Create an account, analyze something, open **History**, then **Account → delete account** to leave the database clean.
 4. **[verify] Real visitor IPs.** In **Logs** find a line like `INFO: 203.0.113.7:0 - "POST /api/predict HTTP/1.0" 200`. The address should be *yours* and should differ between devices. If every line shows the same internal address (10.x / 172.x), Render is not providing the header: **delete the `CLIENT_IP_HEADER` variable**. The site then still works, but the per-IP limits (10 logins/min, 30 analyses/min) become shared by all visitors.
 
-## 6. Everyday operations
+## 6. Updating the live site
+
+Your computer and the live website are **two separate things**. Rebuilding containers on your PC never changes the live site, and pushing to GitHub never changes your local containers. **The live site is updated only by pushing to GitHub**: Render watches your branch (`autoDeployTrigger: commit` in `render.yaml`) and deploys by itself.
+
+### When exactly to do what
+
+| You changed… | Local containers (optional, to test) | Live website |
+|---|---|---|
+| Backend code `backend/app/**` | `docker compose up -d --build --wait backend` | `git push` → deploys automatically |
+| Model files `backend/artifacts/**` | same | `git push` |
+| Python packages `backend/requirements.txt` | same (slower: reinstalls) | `git push` (slower) |
+| Frontend `frontend/src/**`, `frontend/index.html`, `frontend/package*.json` | `docker compose up -d --build frontend` | `git push` |
+| Hosting files `deploy/**`, `.dockerignore` | nothing (local compose doesn't use them) | `git push` |
+| Settings in `.env` (local only) | `docker compose up -d` | — (live settings are in Render → **Environment**) |
+| Docs `docs/**`, notebook/training `ml/**`, `scripts/**`, `README.md` | nothing | **No deploy.** These are not part of the image, so the build filter skips them |
+| `render.yaml` | — | always processed (service settings sync) |
+
+**The routine, in order**
+
+1. Make and save your change.
+2. *(Optional, recommended)* Test it locally with the command from the table and open <http://localhost:8090>. For backend changes also run the tests:
+   ```bash
+   docker build --target test -t sarcasense-backend-test backend && docker run --rm sarcasense-backend-test
+   ```
+3. Commit and push. The repository's local git identity is already `razanaqvi14` and the remote is already set:
+   ```bash
+   git add -A
+   git commit -m "Describe what you changed"
+   git -c credential.helper= push
+   ```
+   Username `razanaqvi14`, password = a **new** GitHub personal access token (or set up the SSH key alias so no token is needed).
+4. **Watch the deploy:** Render dashboard → your service → **Logs**. It starts within seconds of the push. Wait for **Live**.
+5. **Check the live site:** open `/api/health`, then try your change. If you still see the old page, hard-refresh (Ctrl+Shift+R).
+
+### Only the changed part is rebuilt
+
+Docker builds the image in cached layers, and the Dockerfiles are ordered so the slow, stable steps come first (PyTorch, packages, NLTK data, `npm ci`, the model file) and the code you edit most comes last. Render keeps these layers between builds ([Render docs: image caching](https://render.com/docs/docker)). Measured on this project (local machine, legacy Docker builder):
+
+| Change | Rebuild time | What actually re-ran |
+|---|---|---|
+| nothing changed | ~1 s | nothing |
+| one backend file | ~11 s | only the final `COPY backend/app` |
+| one frontend file | ~4 s | only the frontend build (and its copy, if the output differs) |
+| `requirements.txt` | minutes | package install and everything after it |
+| first build ever / cache cleared | ~2+ min locally (longer on Render's free CPU) | everything |
+
+Be clear about what this does and does not mean on Render: your site is **one container**, so every deploy replaces the whole container (nginx + API + model together), even for a one-line frontend change. What is incremental is the **build**, not the restart. The restart then includes loading the model (about 53 s on the free plan's 0.1 CPU, 8 s at 0.5 CPU; measured locally). Replacing only the frontend or only the backend independently would need them to be two separate Render services, which costs more and breaks the same-address design (see section 11). The build filter's job is the other half: it stops commits that cannot change the site (docs, notebooks, scripts) from deploying at all.
+
+### Controlling deploys
+
+| Want to… | Do this |
+|---|---|
+| Push without deploying | put `[skip render]` (or `[render skip]`) in the commit message ([Render docs](https://render.com/docs/deploys)) |
+| Deploy even though nothing in the filtered paths changed | Render dashboard → **Manual Deploy → Deploy latest commit** (manual deploys ignore build filters) |
+| Rebuild from scratch (stuck or odd build) | Manual Deploy → **Clear build cache & deploy** |
+| Know whether a push was skipped | service → **Events** shows skipped deploys |
+
+The `buildFilter` in `render.yaml` uses Render's documented `paths` key. Render's docs do not say outright that build filters apply to Docker services — **[verify]** on your first docs-only push: nothing new should appear under **Events**/**Deploys**. If a deploy starts anyway, the filter is not applied to Docker services and docs commits will simply deploy too (harmless; add `[skip render]` to avoid it).
+
+### Changes that need extra care
+
+| Change | What to do |
+|---|---|
+| **Database schema** (changing an existing table) | The app only creates *missing* tables at start-up, it never alters existing ones, so such a change **breaks the live site**. Add a migration tool (Alembic) before the first schema change |
+| **Environment variables / secrets** | Not in Git. Edit in Render → service → **Environment**; saving redeploys. `render.yaml` changes sync on push, but `sync: false` values (like `DATABASE_URL`) are not asked for again |
+| **New model** | Retrain, run `python ml/export_for_serving.py`, commit `backend/artifacts/`, push. Each new 29 MB model stays in Git history forever, so do this deliberately |
+| **Free plan** | The service sleeps after 15 idle minutes, so the first visit after a deploy or a quiet period takes ~1–2 minutes |
+
+### If a deploy breaks the site
+
+- A *failed build* normally leaves the previous version running. Read **Logs**, fix the problem, push again.
+- To return to a known-good version use the **Rollback** option on an earlier deploy in the service's **Events/Deploys** list **[verify]**, or undo in Git and push:
+  ```bash
+  git revert HEAD
+  git -c credential.helper= push
+  ```
+
+## 7. Everyday operations
 
 | Task | How |
 |---|---|
-| Release an update | `git push` to the default branch → Render rebuilds and deploys automatically (`autoDeployTrigger: commit`) |
+| Release an update | `git push` — see section 6 |
 | Roll back | Service → **Events/Deploys** → pick an earlier deploy → **Rollback** **[verify]** |
 | Change a setting | Service → **Environment** → edit → Render redeploys |
 | Read logs | Service → **Logs** |
@@ -108,7 +185,7 @@ Your address is shown at the top of the service page (`https://sarcasense-xxxx.o
 | Back up the data | `docker run --rm postgres:16-alpine pg_dump "YOUR_NEON_URL" \| gzip > backup-$(date +%F).sql.gz` — run it now and then; also check Neon's own restore options |
 | Reset everything | delete the Render service; in Neon delete the project (this destroys user data) |
 
-## 7. Security checklist for a public site
+## 8. Security checklist for a public site
 
 - `SECRET_KEY` and `DATABASE_URL` live only in Render's Environment settings. Never in Git. If either leaks: rotate it (changing `SECRET_KEY` signs everyone out).
 - `COOKIE_SECURE=true`, API docs off (`ENABLE_DOCS` unset), HTTPS enforced by Render, HSTS sent by the app when the edge reports HTTPS.
@@ -117,7 +194,7 @@ Your address is shown at the top of the service page (`https://sarcasense-xxxx.o
 - Signed-in users' submitted text is stored. Tell visitors (a short privacy note) — they can delete entries, their history, or the whole account in the app.
 - More detail: [SECURITY.md](SECURITY.md).
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Likely cause → fix |
 |---|---|
@@ -130,10 +207,10 @@ Your address is shown at the top of the service page (`https://sarcasense-xxxx.o
 | "Missing CSRF header" | Stale cached page after an update. Hard-refresh (Ctrl+Shift+R) |
 | Site very slow the first time | Free plan waking from sleep (≈ 1–2 min). Normal |
 
-## 9. Other hosts (Railway, Fly.io, …)
+## 10. Other hosts (Railway, Fly.io, …)
 
 `deploy/Dockerfile` is host-neutral: one container, listens on `$PORT`, health endpoints `/api/live` and `/api/health`. On another host set the same environment variables (at least `DATABASE_URL`, `SECRET_KEY`, `COOKIE_SECURE=true`). **Leave `CLIENT_IP_HEADER` unset** unless you know your host's edge sets a client-IP header that visitors cannot forge (for example, Fly.io documents a `Fly-Client-IP` header — **[verify]**); otherwise visitors could dodge the rate limiter by inventing addresses. `render.yaml` is Render-specific; Fly needs its own `fly.toml`.
 
-## 10. Why the project is one repository with one container for hosting
+## 11. Why the project is one repository with one container for hosting
 
 Local development uses three containers (`docker-compose.yml`). Hosting platforms bill and route per service, and the login cookie, CSRF header and security policy assume the page and the API share one web address. Serving both from one container behind one address keeps that design intact, needs no CORS or cross-site cookies, and gives a single service to deploy. The code is identical in both modes; only `deploy/` differs.

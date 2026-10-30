@@ -1,6 +1,6 @@
 # Deployment & operations
 
-> Hosting on Render? See [DEPLOY_RENDER.md](DEPLOY_RENDER.md). This page covers Docker Compose on your own machine or server.
+> Hosting on Render (including how to update the live site after a change)? See [DEPLOY_RENDER.md](DEPLOY_RENDER.md). This page covers Docker Compose on your own machine or server.
 
 ## Configuration (`.env`)
 
@@ -24,7 +24,29 @@ docker compose up -d --build
 docker compose ps            # all three should become healthy
 ```
 
-Update after code changes: `docker compose up -d --build`. Update the model: see [../ml/MODEL.md](../ml/MODEL.md).
+### After you change code (local containers)
+
+The code is **baked into the images** (compose mounts only the database volume), so a change shows up only after you rebuild the service that contains it. Rebuilding one service leaves the others, and your database, untouched.
+
+| You changed | Run from the project root | What happens |
+|---|---|---|
+| `backend/app/**`, `backend/artifacts/**` | `docker compose up -d --build --wait backend` | only the backend image's last layers rebuild; only the backend container restarts |
+| `backend/requirements.txt` | same | packages reinstall (slow, minutes); only the backend restarts |
+| `frontend/src/**`, `frontend/index.html`, `frontend/nginx.conf` | `docker compose up -d --build frontend` | only the frontend rebuilds and restarts |
+| `frontend/package*.json` | same | `npm ci` re-runs, then as above |
+| `.env` or `docker-compose.yml` | `docker compose up -d` | no rebuild; recreates only services whose settings changed |
+| both backend and frontend | `docker compose up -d --build --wait` | each service rebuilds only its own changed layers |
+| `docs/`, `ml/`, `scripts/`, `README.md`, `deploy/`, `render.yaml` | nothing | not part of the local images |
+
+Notes:
+- **Why only the changed part rebuilds:** the Dockerfiles put slow, stable steps (PyTorch, packages, NLTK data, `npm ci`, the model file) first and your code last, so Docker reuses everything above the first changed step. Measured: no change ≈ 1 s, one backend file ≈ 11 s, instead of minutes.
+- **Use `--wait` for the backend.** After a restart the backend needs a few seconds to load the model; until then the site can answer `502`. `--wait` returns only once it is healthy.
+- Your accounts and history survive rebuilds (they live in the `pgdata` volume). Only `docker compose down -v` deletes them.
+- **If you clear Docker's cache** (`docker image prune`, `docker system prune`, deleting images), the next rebuild has to redo the slow steps (minutes), and services whose images were rebuilt are recreated, even ones you didn't edit. Nothing is lost; it is just slower once.
+- Force a full rebuild only when something seems stale: `docker compose build --no-cache backend`.
+- To update the **live website**, see [DEPLOY_RENDER.md](DEPLOY_RENDER.md) section 6: pushing to GitHub is what does that, not rebuilding local containers.
+
+Update the model: see [../ml/MODEL.md](../ml/MODEL.md).
 
 ## Production checklist
 

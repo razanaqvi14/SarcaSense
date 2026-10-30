@@ -170,7 +170,7 @@ curl http://localhost:8090/api/health
 ```
 Expected: `{"status":"ok","model_loaded":true}` (on Windows PowerShell use `curl.exe` or just open the URL in a browser).
 
-Now open **<http://localhost:8090>** in a browser. Try the sample sentence "Oh great, another Monday…" — you should see a **SARCASTIC** stamp, around 94% confidence, with marker highlighting that builds over the words. If so, everything works. Optionally create an account to try the history page.
+Now open **<http://localhost:8090>** in a browser. The page lists five random example headlines (a different mix each time you reload); click one and press **Analyze**, or type your own. For instance, typing "Oh great, another Monday…" should show a **SARCASTIC** stamp, around 94% confidence, with marker highlighting that builds over the words. If so, everything works. Optionally create an account to try the history page.
 
 ---
 
@@ -183,8 +183,11 @@ docker compose stop               # stop, keep everything
 docker compose start              # start again
 docker compose down               # remove containers, KEEP the database
 docker compose down -v            # remove containers AND DELETE the database
-docker compose up -d --build      # rebuild after changing code
+docker compose up -d --build --wait backend    # after changing backend code (only the backend rebuilds)
+docker compose up -d --build frontend           # after changing frontend code (only the frontend rebuilds)
 ```
+The code is baked into the images, so a change appears only after you rebuild the service that contains it; unchanged parts are reused from cache and the other containers keep running. The full table of "what did I change → what do I run" is in [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md#after-you-change-code-local-containers). Updating a *live* website is a different step: push to GitHub ([engineering/DEPLOY_RENDER.md](engineering/DEPLOY_RENDER.md), section 6).
+
 The containers restart automatically when Docker/the PC restarts (`restart: unless-stopped`).
 
 ### Run the automated tests (optional)

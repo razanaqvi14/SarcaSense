@@ -8,6 +8,7 @@
 | Understand how the web app is built | [engineering/ARCHITECTURE.md](engineering/ARCHITECTURE.md) |
 | Call the API | [engineering/API.md](engineering/API.md) |
 | Review security controls | [engineering/SECURITY.md](engineering/SECURITY.md) |
-| **Put it on the internet (Render + Neon)** | [engineering/DEPLOY_RENDER.md](engineering/DEPLOY_RENDER.md) |
+| **Put it on the internet (Render + Neon)**, and **update the live site after a change** | [engineering/DEPLOY_RENDER.md](engineering/DEPLOY_RENDER.md) (section 6) |
+| **After changing code: what do I rebuild/push, and what gets updated?** | [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md#after-you-change-code-local-containers) (local) · [engineering/DEPLOY_RENDER.md](engineering/DEPLOY_RENDER.md) section 6 (live) |
 | Deploy and operate it (Docker Compose / own server) | [engineering/DEPLOYMENT.md](engineering/DEPLOYMENT.md) |
 | Retrain / replace the model | [../ml/README.md](../ml/README.md) |

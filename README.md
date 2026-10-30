@@ -32,6 +32,7 @@ docker compose down -v           # stop and DELETE the database
 ## Features
 
 - Analyze text without an account; the verdict, confidence and per-word attention highlighting are shown.
+- The home page offers five random example headlines (mixed sarcastic / not sarcastic) drawn from a pool in `frontend/src/samples.js`; edit that file to change them.
 - Sign up to keep a history of analyses, view simple stats, delete entries, or delete your account and all its data.
 - Input is cleaned with the exact pipeline used in training (see [docs/ml/MODEL.md](docs/ml/MODEL.md)).
 
@@ -59,6 +60,16 @@ docker-compose.yml
 
 The notebook and its training outputs live in `ml/` and are not used at runtime — the embedding weights are already inside `best_model.pt`. See [ml/README.md](ml/README.md).
 
+## Changing code
+
+| You changed | Local containers | Live website (if deployed) |
+|---|---|---|
+| `backend/` | `docker compose up -d --build --wait backend` | `git push` |
+| `frontend/` | `docker compose up -d --build frontend` | `git push` |
+| `docs/`, `ml/`, `scripts/`, `README.md` | nothing | nothing (not deployed) |
+
+Only the service you changed is rebuilt, and only its changed layers. Rebuilding local containers does not change the live site; pushing to GitHub does. Details: [local](docs/engineering/DEPLOYMENT.md#after-you-change-code-local-containers) and [live](docs/engineering/DEPLOY_RENDER.md).
+
 ## Tests
 
 ```bash
@@ -83,7 +94,7 @@ The Vite dev server proxies `/api` to `localhost:8000`; to reach the backend fro
 - [API reference](docs/engineering/API.md)
 - [Model card](docs/ml/MODEL.md) — what was trained, how inference works, limitations
 - [Security](docs/engineering/SECURITY.md) — controls in place and known limits
-- **[Deploy publicly on Render + Neon](docs/engineering/DEPLOY_RENDER.md) — start-to-end guide**
+- **[Deploy publicly on Render + Neon](docs/engineering/DEPLOY_RENDER.md) — start-to-end guide, including how to push updates to the live site**
 - [Deployment & operations](docs/engineering/DEPLOYMENT.md) — configuration, HTTPS, backups, scaling
 
 ## Limitations

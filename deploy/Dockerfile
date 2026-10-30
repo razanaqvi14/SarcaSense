@@ -31,13 +31,15 @@ RUN pip install -r requirements.txt
 RUN python -m nltk.downloader -d "$NLTK_DATA" punkt punkt_tab wordnet omw-1.4
 
 RUN useradd --system --uid 10001 --no-create-home app
-COPY backend/app ./app
+# Order matters for rebuild speed (rarely-changing first, most-edited last): a backend code change
+# re-runs only the last COPY; a frontend change re-runs the frontend build + its COPY + the last one.
 COPY backend/artifacts ./artifacts
-COPY --from=web /app/dist /srv/www
 COPY deploy/nginx.conf.template /etc/nginx/nginx.conf.template
 COPY deploy/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY deploy/start.sh /srv/start.sh
 RUN chmod 755 /srv/start.sh
+COPY --from=web /app/dist /srv/www
+COPY backend/app ./app
 
 USER app
 EXPOSE 8080

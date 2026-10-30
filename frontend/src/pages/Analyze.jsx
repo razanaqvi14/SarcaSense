@@ -3,13 +3,9 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../AuthContext";
 import ResultCard from "../components/ResultCard";
+import { pickSamples } from "../samples";
 
 const MAX = 500;
-const SAMPLES = [
-  "Area man heroically finishes entire meeting without saying anything useful",
-  "Oh great, another Monday. Just what I needed to recharge from the exhausting weekend of doing absolutely nothing.",
-  "Senate passes bipartisan infrastructure bill after months of negotiations",
-];
 
 export default function Analyze() {
   const { user } = useAuth();
@@ -19,6 +15,8 @@ export default function Analyze() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const resultRef = useRef(null);
+  // five random examples, picked once per page load
+  const [samples] = useState(() => pickSamples(5));
 
   async function submit(e) {
     e.preventDefault();
@@ -70,7 +68,7 @@ export default function Analyze() {
         </div>
 
         <ul className="samples">
-          {SAMPLES.map((s) => (
+          {samples.map((s) => (
             <li key={s}>
               <button type="button" onClick={() => setText(s)}>{s}</button>
             </li>

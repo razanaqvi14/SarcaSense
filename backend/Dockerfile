@@ -21,8 +21,10 @@ RUN pip install -r requirements.txt
 RUN python -m nltk.downloader -d "$NLTK_DATA" punkt punkt_tab wordnet omw-1.4
 
 RUN useradd --system --uid 10001 --no-create-home app
-COPY app ./app
+# Order matters for rebuild speed: things that rarely change come first, code that changes
+# most often comes last, so an edit to app/ only re-runs the final COPY.
 COPY artifacts ./artifacts
+COPY app ./app
 USER app
 
 EXPOSE 8000
