@@ -32,7 +32,7 @@ docker compose down -v           # stop and DELETE the database
 ## Features
 
 - Analyze text without an account; the verdict, confidence and per-word attention highlighting are shown.
-- The home page offers five random example headlines (mixed sarcastic / not sarcastic) drawn from a pool in `frontend/src/samples.js`; edit that file to change them.
+- The home page lists five fixed example headlines (a mix of sarcastic and not sarcastic); click one to try it. They live in `frontend/src/samples.js`; edit that file to change them.
 - Sign up to keep a history of analyses, view simple stats, delete entries, or delete your account and all its data.
 - Input is cleaned with the exact pipeline used in training (see [docs/ml/MODEL.md](docs/ml/MODEL.md)).
 
@@ -66,7 +66,7 @@ The notebook and its training outputs live in `ml/` and are not used at runtime 
 |---|---|---|
 | `backend/` | `docker compose up -d --build --wait backend` | `git push` |
 | `frontend/` | `docker compose up -d --build frontend` | `git push` |
-| `docs/`, `ml/`, `scripts/`, `README.md` | nothing | nothing (not deployed) |
+| `docs/`, `ml/`, `scripts/`, `README.md` | nothing | `git push` (these files are not in the image, but any push redeploys; add `[skip render]` to the commit message to avoid that) |
 
 Only the service you changed is rebuilt, and only its changed layers. Rebuilding local containers does not change the live site; pushing to GitHub does. Details: [local](docs/engineering/DEPLOYMENT.md#after-you-change-code-local-containers) and [live](docs/engineering/DEPLOY_RENDER.md).
 

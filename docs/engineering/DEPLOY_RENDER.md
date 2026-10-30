@@ -109,7 +109,7 @@ Your computer and the live website are **two separate things**. Rebuilding conta
 | Frontend `frontend/src/**`, `frontend/index.html`, `frontend/package*.json` | `docker compose up -d --build frontend` | `git push` |
 | Hosting files `deploy/**`, `.dockerignore` | nothing (local compose doesn't use them) | `git push` |
 | Settings in `.env` (local only) | `docker compose up -d` | — (live settings are in Render → **Environment**) |
-| Docs `docs/**`, notebook/training `ml/**`, `scripts/**`, `README.md` | nothing | **No deploy.** These are not part of the image, so the build filter skips them |
+| Docs `docs/**`, notebook/training `ml/**`, `scripts/**`, `README.md` | nothing | `git push` (these files are not in the image, but any push redeploys; put `[skip render]` in the commit message to avoid that) |
 | `render.yaml` | — | always processed (service settings sync) |
 
 **The routine, in order**
@@ -141,18 +141,34 @@ Docker builds the image in cached layers, and the Dockerfiles are ordered so the
 | `requirements.txt` | minutes | package install and everything after it |
 | first build ever / cache cleared | ~2+ min locally (longer on Render's free CPU) | everything |
 
-Be clear about what this does and does not mean on Render: your site is **one container**, so every deploy replaces the whole container (nginx + API + model together), even for a one-line frontend change. What is incremental is the **build**, not the restart. The restart then includes loading the model (about 53 s on the free plan's 0.1 CPU, 8 s at 0.5 CPU; measured locally). Replacing only the frontend or only the backend independently would need them to be two separate Render services, which costs more and breaks the same-address design (see section 11). The build filter's job is the other half: it stops commits that cannot change the site (docs, notebooks, scripts) from deploying at all.
+Be clear about what this does and does not mean on Render: your site is **one container**, so every deploy replaces the whole container (nginx + API + model together), even for a one-line frontend change. What is incremental is the **build**, not the restart. The restart then includes loading the model (about 53 s on the free plan's 0.1 CPU, 8 s at 0.5 CPU; measured locally). Replacing only the frontend or only the backend independently would need them to be two separate Render services, which costs more and breaks the same-address design (see section 11). Commits that cannot change the site (docs, notebooks, scripts) also redeploy unless you add `[skip render]` to the commit message.
 
 ### Controlling deploys
 
 | Want to… | Do this |
 |---|---|
 | Push without deploying | put `[skip render]` (or `[render skip]`) in the commit message ([Render docs](https://render.com/docs/deploys)) |
-| Deploy even though nothing in the filtered paths changed | Render dashboard → **Manual Deploy → Deploy latest commit** (manual deploys ignore build filters) |
+| Deploy a commit Render did not deploy by itself (or redeploy the same one) | Render dashboard → **Manual Deploy → Deploy latest commit** |
 | Rebuild from scratch (stuck or odd build) | Manual Deploy → **Clear build cache & deploy** |
-| Know whether a push was skipped | service → **Events** shows skipped deploys |
+| See what Render did with a push | service → **Events** lists every deploy (and any skipped one) |
 
-The `buildFilter` in `render.yaml` uses Render's documented `paths` key. Render's docs do not say outright that build filters apply to Docker services — **[verify]** on your first docs-only push: nothing new should appear under **Events**/**Deploys**. If a deploy starts anyway, the filter is not applied to Docker services and docs commits will simply deploy too (harmless; add `[skip render]` to avoid it).
+
+### Pushed, but the live site did not change?
+
+First find out whether the *server* is old or only your *browser* is showing a cached copy. Replace `YOUR-SITE` with your address (for example `sarcasense.onrender.com`):
+
+```bash
+f=$(curl -s https://YOUR-SITE/ | grep -o 'assets/index-[^"]*\.js'); echo "live file: $f"; curl -s "https://YOUR-SITE/$f" | python3 -c "import sys; t=sys.stdin.read(); print('contains your new text:', 'SOME NEW TEXT YOU ADDED' in t)"
+```
+
+Use any short string that only exists in your new version (it appears verbatim in the compiled JavaScript). `False` means the **server** is still on the old version; `True` means it is updated and your browser is stale (hard-refresh with Ctrl+Shift+R or use a private window).
+
+If the server is old:
+
+1. Render → your service → **Events**. Is there a deploy for your commit? *In progress*: wait. *Failed*: open its **Logs**; the old version keeps running until a new one is healthy. *Nothing at all*: Render did not start one — go on.
+2. Check **Settings → Build & Deploy**: **Branch** must be the branch you pushed (`main`), **Auto-Deploy** must be on, and **Build Filters** must be empty (if they list included/ignored paths, clear them).
+3. Force it: **Manual Deploy → Deploy latest commit** (or **Clear build cache & deploy** if that changes nothing). Watch **Logs** until **Live**.
+4. If Dashboard → **Blueprints** shows a failed sync for `render.yaml`, read the error; fix the file and push.
 
 ### Changes that need extra care
 
@@ -206,6 +222,7 @@ The `buildFilter` in `render.yaml` uses Render's documented `paths` key. Render'
 | Signing in does not stick | `COOKIE_SECURE=true` requires HTTPS. Use the `https://` address, not `http://` |
 | "Missing CSRF header" | Stale cached page after an update. Hard-refresh (Ctrl+Shift+R) |
 | Site very slow the first time | Free plan waking from sleep (≈ 1–2 min). Normal |
+| Pushed to GitHub but the live site did not change | Section 6, "Pushed, but the live site did not change?" (check whether the server or only your browser is stale; then Events → Manual Deploy) |
 
 ## 10. Other hosts (Railway, Fly.io, …)
 

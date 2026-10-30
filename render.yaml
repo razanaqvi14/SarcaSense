@@ -12,14 +12,6 @@ services:
     # Liveness only (no database call), so health checks don't keep a scale-to-zero database awake.
     healthCheckPath: /api/live
     autoDeployTrigger: commit
-    # Only these paths can trigger an automatic deploy; docs, notebooks and scripts are not part of
-    # the image, so editing them leaves the live site alone. (Changes to this file are always processed.)
-    buildFilter:
-      paths:
-        - backend/**
-        - frontend/**
-        - deploy/**
-        - .dockerignore
     envVars:
       - key: DATABASE_URL          # you are asked for this once, on first Blueprint creation
         sync: false

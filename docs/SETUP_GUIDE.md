@@ -170,7 +170,7 @@ curl http://localhost:8090/api/health
 ```
 Expected: `{"status":"ok","model_loaded":true}` (on Windows PowerShell use `curl.exe` or just open the URL in a browser).
 
-Now open **<http://localhost:8090>** in a browser. The page lists five random example headlines (a different mix each time you reload); click one and press **Analyze**, or type your own. For instance, typing "Oh great, another Monday…" should show a **SARCASTIC** stamp, around 94% confidence, with marker highlighting that builds over the words. If so, everything works. Optionally create an account to try the history page.
+Now open **<http://localhost:8090>** in a browser. The page lists five example headlines; click one and press **Analyze**, or type your own. For instance, typing "Oh great, another Monday…" should show a **SARCASTIC** stamp, around 94% confidence, with marker highlighting that builds over the words. If so, everything works. Optionally create an account to try the history page.
 
 ---
 
