@@ -2,6 +2,9 @@
 
 > An attention-based BiLSTM–BiGRU model that flags sarcastic news headlines — and shows which words drove the verdict.
 
+**Live demo:** <https://sarcasense.onrender.com> (free hosting: after 15 idle minutes the first visit can take 1–2 minutes to wake up).  
+**Source:** <https://github.com/razanaqvi14/SarcaSense>
+
 A web app that tells you whether a news headline (or any short sentence) is sarcastic, and highlights the words the model paid most attention to. It productionises the model from `sarcasm-detection-using-attention-mechanism-87.ipynb`: a BiLSTM → BiGRU → attention classifier trained on the News Headlines Sarcasm dataset (~87% test accuracy).
 
 | Layer     | Technology                                                       |

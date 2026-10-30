@@ -231,3 +231,29 @@ If the server is old:
 ## 11. Why the project is one repository with one container for hosting
 
 Local development uses three containers (`docker-compose.yml`). Hosting platforms bill and route per service, and the login cookie, CSRF header and security policy assume the page and the API share one web address. Serving both from one container behind one address keeps that design intact, needs no CORS or cross-site cookies, and gives a single service to deploy. The code is identical in both modes; only `deploy/` differs.
+
+## 12. Two GitHub accounts on one computer
+
+This project's repository belongs to one GitHub account (`razanaqvi14`), while your everyday account may be another. Git keeps these apart as long as the project's identity is set **per repository**, never globally:
+
+| Setting | Where it lives | Effect |
+|---|---|---|
+| `git config user.name` / `user.email` (no `--global`) | this repository's `.git/config` | commits made here are authored as `razanaqvi14` |
+| `git config --global user.name` / `user.email` | `~/.gitconfig` | used by every other repository — leave it as your main account |
+| Password for `git push` | nothing is stored: pushes use `git -c credential.helper= push` and a one-time token | each push asks for the token |
+
+Useful checks (run inside the project folder):
+
+```bash
+git config user.name && git config user.email          # this repo's identity
+git config --global user.name && git config --global user.email   # your everyday identity
+git remote -v                                           # which repository you push to
+```
+
+To make this repository use your everyday identity again, remove the local override. (Pushing still requires the credentials of the account that owns the repository.)
+
+```bash
+git config --unset user.name && git config --unset user.email
+```
+
+Revoke each personal access token on GitHub (Settings → Developer settings → Personal access tokens) as soon as the push is done.

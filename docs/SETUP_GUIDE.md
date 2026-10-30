@@ -81,7 +81,7 @@ You get a folder `sarcasense/`. Open a terminal **inside** it.
 
 ### Option B — Git
 ```bash
-git clone <your-repository-url> sarcasense
+git clone https://github.com/razanaqvi14/SarcaSense.git sarcasense
 cd sarcasense
 ```
 Make sure `backend/artifacts/best_model.pt` (≈30 MB) is committed. If your Git host limits file size, use Git LFS or Option A. **Never commit `.env`.**
